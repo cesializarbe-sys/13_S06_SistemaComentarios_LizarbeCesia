@@ -1,0 +1,182 @@
+<div class="app-wrapper">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-icon"></span>
+      <div>
+        <h1 class="brand-title">Comentarios</h1>
+        <p class="brand-sub">REST API Demo</p>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card stat-total">
+        <span class="stat-num">{{ totalComentarios }}</span>
+        <span class="stat-lbl">Total</span>
+      </div>
+      <div class="stat-card stat-filtrado">
+        <span class="stat-num">{{ totalFiltrados }}</span>
+        <span class="stat-lbl">{{ hayFiltro ? 'Filtrados' : 'Visibles' }}</span>
+      </div>
+      <div class="stat-card stat-pagina">
+        <span class="stat-num">{{ paginaActual }}/{{ totalPaginas }}</span>
+        <span class="stat-lbl">Página</span>
+      </div>
+    </div>
+
+    <!-- Formulario -->
+    <div class="form-card">
+      <h2 class="form-title"> Nuevo Comentario</h2>
+      <form #comentarioForm="ngForm" (ngSubmit)="enviarComentario(comentarioForm)">
+
+        <div class="field">
+          <label>
+            <span class="field-icon"></span> Nombre
+          </label>
+          <input name="name" type="text" [(ngModel)]="nuevoComentario.name"
+            required minlength="3" placeholder="Tu nombre completo"
+            class="input" [class.input-err]="comentarioForm.submitted && comentarioForm.controls['name'] && comentarioForm.controls['name'].invalid" />
+          <span class="err-msg" *ngIf="comentarioForm.submitted && comentarioForm.controls['name'] && comentarioForm.controls['name'].errors && comentarioForm.controls['name'].errors['required']">Nombre requerido.</span>
+          <span class="err-msg" *ngIf="comentarioForm.submitted && comentarioForm.controls['name'] && comentarioForm.controls['name'].errors && comentarioForm.controls['name'].errors['minlength']">Mínimo 3 caracteres.</span>
+        </div>
+
+        <div class="field">
+          <label>
+            <span class="field-icon"></span> Email
+          </label>
+          <input name="email" type="email" [(ngModel)]="nuevoComentario.email"
+            required email placeholder="tu@correo.com"
+            class="input" [class.input-err]="comentarioForm.submitted && comentarioForm.controls['email'] && comentarioForm.controls['email'].invalid" />
+          <span class="err-msg" *ngIf="comentarioForm.submitted && comentarioForm.controls['email'] && comentarioForm.controls['email'].errors && comentarioForm.controls['email'].errors['required']">Email requerido.</span>
+          <span class="err-msg" *ngIf="comentarioForm.submitted && comentarioForm.controls['email'] && comentarioForm.controls['email'].errors && comentarioForm.controls['email'].errors['email']">Email no válido.</span>
+        </div>
+
+        <div class="field">
+          <label>
+            <span class="field-icon"></span> Comentario
+          </label>
+          <textarea name="body" [(ngModel)]="nuevoComentario.body"
+            required minlength="10" placeholder="Escribe tu comentario..."
+            rows="4" class="input textarea"
+            [class.input-err]="comentarioForm.submitted && comentarioForm.controls['body'] && comentarioForm.controls['body'].invalid"></textarea>
+          <span class="err-msg" *ngIf="comentarioForm.submitted && comentarioForm.controls['body'] && comentarioForm.controls['body'].errors && comentarioForm.controls['body'].errors['required']">Comentario requerido.</span>
+          <span class="err-msg" *ngIf="comentarioForm.submitted && comentarioForm.controls['body'] && comentarioForm.controls['body'].errors && comentarioForm.controls['body'].errors['minlength']">Mínimo 10 caracteres.</span>
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="enviando">
+          <span *ngIf="!enviando"> Publicar comentario</span>
+          <span *ngIf="enviando"> Enviando...</span>
+        </button>
+      </form>
+
+      <div class="toast toast-ok" *ngIf="mensajeExito">{{ mensajeExito }}</div>
+      <div class="toast toast-err" *ngIf="mensajeError && !cargando">{{ mensajeError }}</div>
+    </div>
+  </aside>
+
+  <!-- ══ CONTENIDO PRINCIPAL ══ -->
+  <main class="content">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon"></span>
+        <input type="text" [(ngModel)]="busqueda" (ngModelChange)="aplicarFiltro()"
+          placeholder="Buscar por nombre, email o contenido..." class="search-input" />
+        <button *ngIf="hayFiltro" class="clear-search" (click)="busqueda=''; aplicarFiltro()">✕</button>
+      </div>
+      <button class="btn-reload" (click)="cargarComentarios()" [disabled]="cargando">
+         Recargar
+      </button>
+    </div>
+
+    <div class="result-info" *ngIf="hayFiltro">
+      🔎 {{ totalFiltrados }} resultado(s) para "<strong>{{ busqueda }}</strong>"
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-box" *ngIf="cargando">
+      <div class="spinner"></div>
+      <p>Cargando 500 comentarios desde la API...</p>
+    </div>
+
+    <!-- Sin resultados -->
+    <div class="empty-box" *ngIf="!cargando && totalFiltrados === 0">
+      <span></span>
+      <p>No se encontraron comentarios.</p>
+    </div>
+
+    <!-- Lista -->
+    <div class="lista" *ngIf="!cargando && totalFiltrados > 0">
+      <div class="comentario"
+        *ngFor="let c of paginados"
+        [class.eliminando]="eliminandoId === c.id"
+        [class.confirmando]="confirmandoId === c.id">
+
+        <!-- Avatar con color dinámico -->
+        <div class="c-left">
+          <div class="avatar" [style.background]="getAvatarColor(c.name)">
+            {{ c.name.charAt(0).toUpperCase() }}
+          </div>
+        </div>
+
+        <div class="c-body">
+
+          <!-- Header: nombre + id + badge -->
+          <div class="c-header">
+            <div class="c-meta-top">
+              <span class="c-name">{{ c.name }}</span>
+              <span class="c-id">#{{ c.id }}</span>
+              <span class="badge-nuevo" *ngIf="c.fecha"> Nuevo</span>
+            </div>
+            <span class="c-fecha" *ngIf="c.fecha"> {{ c.fecha }}</span>
+          </div>
+
+          <!-- Email pill -->
+          <a class="email-pill" [href]="'mailto:' + c.email" *ngIf="c.email">
+            <span class="email-dot"></span>
+            <span class="email-icon">✉</span>
+            {{ c.email }}
+          </a>
+
+          <!-- Texto del comentario -->
+          <p class="c-text">{{ c.body }}</p>
+
+          <!-- Confirmación eliminar -->
+          <div class="confirm-bar" *ngIf="confirmandoId === c.id">
+            <span class="confirm-msg">⚠️ ¿Eliminar este comentario?</span>
+            <button class="btn-confirmar" (click)="confirmarEliminar(c.id!)">Sí, eliminar</button>
+            <button class="btn-cancelar" (click)="cancelarEliminar()">Cancelar</button>
+          </div>
+        </div>
+
+        <div class="c-actions">
+          <button class="btn-delete"
+            (click)="solicitarEliminar(c.id!)"
+            *ngIf="confirmandoId !== c.id && eliminandoId !== c.id"
+            title="Eliminar comentario">
+            🗑️
+          </button>
+          <div class="deleting-spin" *ngIf="eliminandoId === c.id">⏳</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Paginación -->
+    <div class="paginacion" *ngIf="!cargando && totalPaginas > 1">
+      <button class="pag-btn" (click)="irPagina(1)"              [disabled]="paginaActual === 1">«</button>
+      <button class="pag-btn" (click)="irPagina(paginaActual-1)" [disabled]="paginaActual === 1">‹</button>
+      <button class="pag-btn" *ngFor="let p of paginas"
+        [class.pag-active]="p === paginaActual" (click)="irPagina(p)">{{ p }}</button>
+      <button class="pag-btn" (click)="irPagina(paginaActual+1)" [disabled]="paginaActual === totalPaginas">›</button>
+      <button class="pag-btn" (click)="irPagina(totalPaginas)"   [disabled]="paginaActual === totalPaginas">»</button>
+      <span class="pag-info">
+        Mostrando {{ (paginaActual-1)*porPagina + 1 }}–{{ paginaActual*porPagina > totalFiltrados ? totalFiltrados : paginaActual*porPagina }} de {{ totalFiltrados }}
+      </span>
+    </div>
+
+  </main>
+</div>
